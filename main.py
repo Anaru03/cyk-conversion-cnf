@@ -1,59 +1,29 @@
-from yk_cnf import cyk_parse, build_tree
-from collections import defaultdict
-
-def leer_gramatica_archivo(ruta):
-    """
-    Lee la gramática desde un archivo .txt
-    Formato esperado:
-        S -> NP VP | Det N
-    """
-    gramatica = defaultdict(list)
-    with open(ruta, "r", encoding="utf-8") as f:
-        for linea in f:
-            linea = linea.strip()
-            if not linea or "->" not in linea:
-                continue
-            izq, der = linea.split("->")
-            izq = izq.strip()
-            for prod in der.split("|"):
-                gramatica[izq].append(tuple(prod.strip().split()))
-    return gramatica
-
-def imprimir_arbol(tree, nivel=0):
-    """
-    Imprime el parse tree jerárquicamente
-    """
-    if isinstance(tree, str):
-        print("  " * nivel + tree)
-    else:
-        print("  " * nivel + tree[0])
-        imprimir_arbol(tree[1], nivel+1)
-        imprimir_arbol(tree[2], nivel+1)
+from yk_cnf import leer_gramatica_cnf, cyk_parse, build_tree, print_tree
+import time
 
 def main():
-    ruta_gramatica = "data/eng.txt"  # tu archivo de gramática
-    gramatica = leer_gramatica_archivo(ruta_gramatica)
+    ruta_gramatica = "data/eng.txt"
+    grammar = leer_gramatica_cnf(ruta_gramatica)
 
     print("Gramática cargada:")
-    for A in gramatica:
-        print(A, "->", " | ".join(" ".join(p) for p in gramatica[A]))
+    for A in grammar:
+        print(A, "->", " | ".join(" ".join(p) for p in grammar[A]))
 
-    frase = input("\nIngrese la frase (tokens separados por espacios): ").strip().lower()
-    tokens = frase.split()
+    sentence = input("\nIngrese la frase: ").strip().lower()
+    words = sentence.split()
 
-    import time
-    t0 = time.time()
-    tabla, back = cyk_parse(tokens, gramatica)
-    t1 = time.time()
+    start_time = time.perf_counter()
+    table, back = cyk_parse(words, grammar)
+    end_time = time.perf_counter()
 
-    aceptada = "S" in tabla[0][len(tokens)-1] if tokens else False
-    print("\nResultado:", "SÍ" if aceptada else "NO")
-    print(f"Tiempo: {t1 - t0:.6f} segundos")
+    accepted = "S" in table[0][len(words)-1] if words else False
+    print("\nResultado:", "SÍ" if accepted else "NO")
+    print(f"Tiempo: {end_time - start_time:.8f} segundos")
 
-    if aceptada:
-        tree = build_tree(back, 0, len(tokens)-1, "S")
-        print("\nParse tree completo:")
-        imprimir_arbol(tree)
+    if accepted:
+        print("\nParse tree completo: ")
+        tree = build_tree(back, 0, len(words)-1, "S")
+        print_tree(tree)
 
 if __name__ == "__main__":
     main()
