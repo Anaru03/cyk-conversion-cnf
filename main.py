@@ -111,3 +111,33 @@ def preparar_cnf(gramatica):
     for t, v in reemplazos.items():
         nueva[v].append((t,))
     return nueva
+
+# Algoritmo CYK
+def cyk(gramatica, tokens, inicio):
+    n = len(tokens)
+    tabla = [[set() for _ in range(n)] for _ in range(n)]
+    term_a_var = defaultdict(set)
+    pares_a_var = defaultdict(set)
+
+    for A in gramatica:
+        for prod in gramatica[A]:
+            if len(prod) == 1:
+                term_a_var[prod[0]].add(A)
+            elif len(prod) == 2:
+                pares_a_var[(prod[0], prod[1])].add(A)
+
+    for i, t in enumerate(tokens):
+        for A in term_a_var[t]:
+            tabla[i][i].add(A)
+
+    for l in range(2, n + 1):
+        for i in range(n - l + 1):
+            j = i + l - 1
+            for k in range(i, j):
+                for B in tabla[i][k]:
+                    for C in tabla[k + 1][j]:
+                        for A in pares_a_var[(B, C)]:
+                            tabla[i][j].add(A)
+
+    return inicio in tabla[0][n - 1]
+
