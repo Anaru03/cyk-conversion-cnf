@@ -19,3 +19,59 @@ def leer_gramatica(texto):
                 gramatica[izq].append(tuple(p.split()))
     return gramatica
 
+
+# Eliminar epsilon-producciones
+def eliminar_epsilon(gramatica, inicio):
+    anulables = set()
+    cambio = True
+    while cambio:
+        cambio = False
+        for A in gramatica:
+            for prod in gramatica[A]:
+                if len(prod) == 0 or all(x in anulables for x in prod):
+                    if A not in anulables:
+                        anulables.add(A)
+                        cambio = True
+    nueva = defaultdict(list)
+    for A in gramatica:
+        for prod in gramatica[A]:
+            if len(prod) == 0:
+                continue
+            partes = [i for i, x in enumerate(prod) if x in anulables]
+            for m in range(1 << len(partes)):
+                nueva_prod = [prod[i] for i in range(len(prod)) if i not in partes or not (m >> partes.index(i)) & 1]
+                nueva[A].append(tuple(nueva_prod))
+    if inicio in anulables:
+        nueva[inicio].append(())
+    return nueva
+
+
+# Eliminar producciones unitarias
+def eliminar_unitarias(gramatica):
+    unidades = defaultdict(set)
+    for A in gramatica:
+        for prod in gramatica[A]:
+            if len(prod) == 1 and prod[0] in gramatica:
+                unidades[A].add(prod[0])
+    cambio = True
+    while cambio:
+        cambio = False
+        for A in list(unidades.keys()):
+            nuevas = set()
+            for B in unidades[A]:
+                nuevas |= unidades.get(B, set())
+            antes = len(unidades[A])
+            unidades[A] |= nuevas
+            if len(unidades[A]) > antes:
+                cambio = True
+    nueva = defaultdict(list)
+    for A in gramatica:
+        for prod in gramatica[A]:
+            if not (len(prod) == 1 and prod[0] in gramatica):
+                nueva[A].append(prod)
+        for B in unidades[A]:
+            for prod in gramatica[B]:
+                if not (len(prod) == 1 and prod[0] in gramatica):
+                    nueva[A].append(prod)
+    return nueva
+
