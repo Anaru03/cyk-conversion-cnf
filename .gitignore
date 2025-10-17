@@ -1,0 +1,12 @@
+# Entornos virtuales
+venv/
+.env
+
+# Archivos Python compilados
+__pycache__/
+*.pyc
+*.pyo
+
+# Salidas temporales o generadas
+output/
+*.log
