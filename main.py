@@ -141,3 +141,39 @@ def cyk(gramatica, tokens, inicio):
 
     return inicio in tabla[0][n - 1]
 
+# Función principal
+import time
+
+def main():
+    if len(sys.argv) < 3:
+        print("Uso: python main.py archivo.txt \"cadena a analizar\"")
+        return
+    archivo = sys.argv[1]
+    cadena = sys.argv[2]
+    texto = open(archivo, "r", encoding="utf-8").read()
+    gramatica = leer_gramatica(texto)
+    inicio = list(gramatica.keys())[0]
+
+    print("Gramática original:")
+    for A in gramatica:
+        print(A, "->", " | ".join(" ".join(p) if p else "ε" for p in gramatica[A]))
+
+    g1 = eliminar_epsilon(gramatica, inicio)
+    g2 = eliminar_unitarias(g1)
+    cnf = preparar_cnf(g2)
+
+    print("\nGramática en CNF:")
+    for A in cnf:
+        print(A, "->", " | ".join(" ".join(p) for p in cnf[A]))
+
+    tokens = cadena.split()
+    t0 = time.time()
+    aceptada = cyk(cnf, tokens, inicio)
+    t1 = time.time()
+
+    print("\nCadena:", cadena)
+    print("Resultado:", "ACEPTADA" if aceptada else "NO ACEPTADA")
+    print("Tiempo:", round(t1 - t0, 6), "segundos")
+
+if __name__ == "__main__":
+    main()
