@@ -45,3 +45,10 @@ def cyk_parse(words, grammar):
                                 back[i][j][var] = (k, B, C)
 
     return table, back
+
+#Construcción del parse tree
+def build_tree(back, i, j, symbol):
+    if i == j:
+        return symbol
+    k, B, C = back[i][j][symbol]
+    return (symbol, build_tree(back, i, k, B), build_tree(back, k+1, j, C))
