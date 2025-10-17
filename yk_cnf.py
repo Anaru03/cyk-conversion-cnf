@@ -52,3 +52,29 @@ def build_tree(back, i, j, symbol):
         return symbol
     k, B, C = back[i][j][symbol]
     return (symbol, build_tree(back, i, k, B), build_tree(back, k+1, j, C))
+
+
+#Función principal
+def main():
+    ruta_gramatica = "data/1-cnf.txt"
+    grammar = leer_gramatica_cnf(ruta_gramatica)
+
+    sentence = input("Ingrese la frase en inglés: ").strip().lower()
+    words = sentence.split()
+
+    start_time = time.time()
+    table, back = cyk_parse(words, grammar)
+    end_time = time.time()
+
+    accepted = "S" in table[0][len(words)-1] if words else False
+    print("\nResultado:", "SÍ" if accepted else "NO")
+    print(f"Tiempo: {end_time - start_time:.6f} segundos")
+
+    if accepted:
+        tree = build_tree(back, 0, len(words)-1, "S")
+        print("\nParse tree completo:")
+        print(tree)
+
+#Punto de entrada
+if __name__ == "__main__":
+    main()
