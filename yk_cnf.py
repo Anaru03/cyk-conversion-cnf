@@ -1,37 +1,19 @@
 import time
 
-# Lectura de la gramática CNF
-def leer_gramatica_cnf(ruta_archivo):
-    grammar = {}
-    with open(ruta_archivo, "r", encoding="utf-8") as f:
-        for linea in f:
-            linea = linea.strip()
-            if not linea or linea.startswith("#"):
-                continue
-            if "->" not in linea:
-                continue
-            var, prods = linea.split("->")
-            var = var.strip()
-            prod_list = []
-            for prod in prods.split("|"):
-                prod_symbols = tuple(prod.strip().split())
-                prod_list.append(prod_symbols)
-            grammar[var] = prod_list
-    return grammar
-
-#Implementación CYK
-def cyk_parse(words, grammar):
-    n = len(words)
+def cyk_parse(tokens, grammar):
+    n = len(tokens)
     table = [[set() for _ in range(n)] for _ in range(n)]
     back = [[dict() for _ in range(n)] for _ in range(n)]
 
-    for i, word in enumerate(words):
+    # Terminales
+    for i, word in enumerate(tokens):
         for var, productions in grammar.items():
             for prod in productions:
                 if len(prod) == 1 and prod[0] == word:
                     table[i][i].add(var)
                     back[i][i][var] = word
 
+    # Subcadenas de longitud >1
     for l in range(2, n+1):
         for i in range(n - l + 1):
             j = i + l - 1
@@ -43,38 +25,10 @@ def cyk_parse(words, grammar):
                             if B in table[i][k] and C in table[k+1][j]:
                                 table[i][j].add(var)
                                 back[i][j][var] = (k, B, C)
-
     return table, back
 
-#Construcción del parse tree
 def build_tree(back, i, j, symbol):
     if i == j:
         return symbol
     k, B, C = back[i][j][symbol]
     return (symbol, build_tree(back, i, k, B), build_tree(back, k+1, j, C))
-
-
-#Función principal
-def main():
-    ruta_gramatica = "data/1-cnf.txt"
-    grammar = leer_gramatica_cnf(ruta_gramatica)
-
-    sentence = input("Ingrese la frase en inglés: ").strip().lower()
-    words = sentence.split()
-
-    start_time = time.time()
-    table, back = cyk_parse(words, grammar)
-    end_time = time.time()
-
-    accepted = "S" in table[0][len(words)-1] if words else False
-    print("\nResultado:", "SÍ" if accepted else "NO")
-    print(f"Tiempo: {end_time - start_time:.6f} segundos")
-
-    if accepted:
-        tree = build_tree(back, 0, len(words)-1, "S")
-        print("\nParse tree completo:")
-        print(tree)
-
-#Punto de entrada
-if __name__ == "__main__":
-    main()

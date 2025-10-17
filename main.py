@@ -1,179 +1,59 @@
-import sys
+from yk_cnf import cyk_parse, build_tree
 from collections import defaultdict
 
-# Leer la gramática del archivo
-def leer_gramatica(texto):
+def leer_gramatica_archivo(ruta):
+    """
+    Lee la gramática desde un archivo .txt
+    Formato esperado:
+        S -> NP VP | Det N
+    """
     gramatica = defaultdict(list)
-    lineas = texto.strip().split("\n")
-    for l in lineas:
-        if "->" not in l:
-            continue
-        izq, der = l.split("->")
-        izq = izq.strip()
-        producciones = der.split("|")
-        for p in producciones:
-            p = p.strip()
-            if p == "e" or p == "ε":
-                gramatica[izq].append(())
-            else:
-                gramatica[izq].append(tuple(p.split()))
+    with open(ruta, "r", encoding="utf-8") as f:
+        for linea in f:
+            linea = linea.strip()
+            if not linea or "->" not in linea:
+                continue
+            izq, der = linea.split("->")
+            izq = izq.strip()
+            for prod in der.split("|"):
+                gramatica[izq].append(tuple(prod.strip().split()))
     return gramatica
 
-
-# Eliminar epsilon-producciones
-def eliminar_epsilon(gramatica, inicio):
-    anulables = set()
-    cambio = True
-    while cambio:
-        cambio = False
-        for A in gramatica:
-            for prod in gramatica[A]:
-                if len(prod) == 0 or all(x in anulables for x in prod):
-                    if A not in anulables:
-                        anulables.add(A)
-                        cambio = True
-    nueva = defaultdict(list)
-    for A in gramatica:
-        for prod in gramatica[A]:
-            if len(prod) == 0:
-                continue
-            partes = [i for i, x in enumerate(prod) if x in anulables]
-            for m in range(1 << len(partes)):
-                nueva_prod = [prod[i] for i in range(len(prod)) if i not in partes or not (m >> partes.index(i)) & 1]
-                nueva[A].append(tuple(nueva_prod))
-    if inicio in anulables:
-        nueva[inicio].append(())
-    return nueva
-
-
-# Eliminar producciones unitarias
-def eliminar_unitarias(gramatica):
-    unidades = defaultdict(set)
-    for A in gramatica:
-        for prod in gramatica[A]:
-            if len(prod) == 1 and prod[0] in gramatica:
-                unidades[A].add(prod[0])
-    cambio = True
-    while cambio:
-        cambio = False
-        for A in list(unidades.keys()):
-            nuevas = set()
-            for B in unidades[A]:
-                nuevas |= unidades.get(B, set())
-            antes = len(unidades[A])
-            unidades[A] |= nuevas
-            if len(unidades[A]) > antes:
-                cambio = True
-    nueva = defaultdict(list)
-    for A in gramatica:
-        for prod in gramatica[A]:
-            if not (len(prod) == 1 and prod[0] in gramatica):
-                nueva[A].append(prod)
-        for B in unidades[A]:
-            for prod in gramatica[B]:
-                if not (len(prod) == 1 and prod[0] in gramatica):
-                    nueva[A].append(prod)
-    return nueva
-
-# Reemplazar terminales y binarizar
-contador = 1
-def nuevo_simbolo(prefijo="X"):
-    global contador
-    s = f"{prefijo}{contador}"
-    contador += 1
-    return s
-
-def preparar_cnf(gramatica):
-    nueva = defaultdict(list)
-    reemplazos = {}
-    for A in gramatica:
-        for prod in gramatica[A]:
-            if len(prod) > 2:
-                simbolos = list(prod)
-                temp = nuevo_simbolo()
-                nueva[A].append((simbolos[0], temp))
-                for i in range(1, len(simbolos) - 2):
-                    sig = nuevo_simbolo()
-                    nueva[temp].append((simbolos[i], sig))
-                    temp = sig
-                nueva[temp].append(tuple(simbolos[-2:]))
-            elif len(prod) == 2:
-                nueva[A].append(prod)
-            elif len(prod) == 1:
-                x = prod[0]
-                if x not in gramatica:
-                    if x not in reemplazos:
-                        var = nuevo_simbolo("T")
-                        reemplazos[x] = var
-                    nueva[A].append((reemplazos[x],))
-                else:
-                    nueva[A].append(prod)
-    for t, v in reemplazos.items():
-        nueva[v].append((t,))
-    return nueva
-
-# Algoritmo CYK
-def cyk(gramatica, tokens, inicio):
-    n = len(tokens)
-    tabla = [[set() for _ in range(n)] for _ in range(n)]
-    term_a_var = defaultdict(set)
-    pares_a_var = defaultdict(set)
-
-    for A in gramatica:
-        for prod in gramatica[A]:
-            if len(prod) == 1:
-                term_a_var[prod[0]].add(A)
-            elif len(prod) == 2:
-                pares_a_var[(prod[0], prod[1])].add(A)
-
-    for i, t in enumerate(tokens):
-        for A in term_a_var[t]:
-            tabla[i][i].add(A)
-
-    for l in range(2, n + 1):
-        for i in range(n - l + 1):
-            j = i + l - 1
-            for k in range(i, j):
-                for B in tabla[i][k]:
-                    for C in tabla[k + 1][j]:
-                        for A in pares_a_var[(B, C)]:
-                            tabla[i][j].add(A)
-
-    return inicio in tabla[0][n - 1]
-
-# Función principal
-import time
+def imprimir_arbol(tree, nivel=0):
+    """
+    Imprime el parse tree jerárquicamente
+    """
+    if isinstance(tree, str):
+        print("  " * nivel + tree)
+    else:
+        print("  " * nivel + tree[0])
+        imprimir_arbol(tree[1], nivel+1)
+        imprimir_arbol(tree[2], nivel+1)
 
 def main():
-    if len(sys.argv) < 3:
-        print("Uso: python main.py archivo.txt \"cadena a analizar\"")
-        return
-    archivo = sys.argv[1]
-    cadena = sys.argv[2]
-    texto = open(archivo, "r", encoding="utf-8").read()
-    gramatica = leer_gramatica(texto)
-    inicio = list(gramatica.keys())[0]
+    ruta_gramatica = "data/eng.txt"  # tu archivo de gramática
+    gramatica = leer_gramatica_archivo(ruta_gramatica)
 
-    print("Gramática original:")
+    print("Gramática cargada:")
     for A in gramatica:
-        print(A, "->", " | ".join(" ".join(p) if p else "ε" for p in gramatica[A]))
+        print(A, "->", " | ".join(" ".join(p) for p in gramatica[A]))
 
-    g1 = eliminar_epsilon(gramatica, inicio)
-    g2 = eliminar_unitarias(g1)
-    cnf = preparar_cnf(g2)
+    frase = input("\nIngrese la frase (tokens separados por espacios): ").strip().lower()
+    tokens = frase.split()
 
-    print("\nGramática en CNF:")
-    for A in cnf:
-        print(A, "->", " | ".join(" ".join(p) for p in cnf[A]))
-
-    tokens = cadena.split()
+    import time
     t0 = time.time()
-    aceptada = cyk(cnf, tokens, inicio)
+    tabla, back = cyk_parse(tokens, gramatica)
     t1 = time.time()
 
-    print("\nCadena:", cadena)
-    print("Resultado:", "ACEPTADA" if aceptada else "NO ACEPTADA")
-    print("Tiempo:", round(t1 - t0, 6), "segundos")
+    aceptada = "S" in tabla[0][len(tokens)-1] if tokens else False
+    print("\nResultado:", "SÍ" if aceptada else "NO")
+    print(f"Tiempo: {t1 - t0:.6f} segundos")
+
+    if aceptada:
+        tree = build_tree(back, 0, len(tokens)-1, "S")
+        print("\nParse tree completo:")
+        imprimir_arbol(tree)
 
 if __name__ == "__main__":
     main()
